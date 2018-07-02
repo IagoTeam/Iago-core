@@ -1,0 +1,13 @@
+## Articles related to dotnet tools
+* https://andrewlock.net/creating-a-net-core-global-cli-tool-for-squashing-images-with-the-tinypng-api/
+* https://docs.microsoft.com/en-us/dotnet/core/tools/global-tools
+
+
+done
+- created basic structure
+- poc is in Recompile project
+
+todo:
+- add a bolt project : this project should be something separate and moved later. this project
+is here to provide access by reflection to the current folder. it should be reusable for other projects
+- link all projects (use rider)
