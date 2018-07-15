@@ -48,6 +48,7 @@ namespace Bolt
             {
                 context = services.ProjectFileChooser.FindProjectFile(context);
                 context = services.ProjectBuilder.BuildProject(context);
+                context = services.ProjectBinaryLoader.LoadAssemblyAndContext(context);
             }
             catch (Exception e)
             {
@@ -86,17 +87,20 @@ namespace Bolt
     {
         public IProjectFileChooser ProjectFileChooser { get; set; }
         public IProjectBuilder ProjectBuilder { get; set; }
+        public IProjectBinaryLoader ProjectBinaryLoader { get; set; }
     }
     
     public class ConventionsSetter
     {
         private IProjectFileChooser projectFileChooser;
         private IProjectBuilder projectBuilder;
-
+        private IProjectBinaryLoader projectBinaryLoader;
+        
         internal void SetupServices(BuildServices services)
         {
             services.ProjectFileChooser = projectFileChooser ?? new DirectoryProjectFileChooser();
             services.ProjectBuilder = projectBuilder ?? new MsBuildProjectBuilder();
+            services.ProjectBinaryLoader = projectBinaryLoader;
         }
         
         public void SetProjectFileChooser(IProjectFileChooser projectFileChooser)
@@ -107,6 +111,11 @@ namespace Bolt
         public void SetProjectBuilder(IProjectBuilder projectBuilder)
         {
             this.projectBuilder = projectBuilder;
+        }
+
+        public void SetProjectBinaryLoader(IProjectBinaryLoader projectBinaryLoader)
+        {
+            this.projectBinaryLoader = projectBinaryLoader;
         }
     }
 
@@ -120,6 +129,11 @@ namespace Bolt
         BuildContext BuildProject(BuildContext context);
     }
 
+    public interface IProjectBinaryLoader
+    {
+        BuildContext LoadAssemblyAndContext(BuildContext context);
+    }
+    
     public class DirectoryProjectFileChooser : IProjectFileChooser
     {
         public BuildContext FindProjectFile(BuildContext context)

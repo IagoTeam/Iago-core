@@ -136,9 +136,47 @@ namespace Bolt.Tests
             }
         }
             
-        
+        public class  with_projectBinaryLoader
+        {
+            [Fact]
+            public async Task
+                ensure_projectBinaryLoader_is_called()
+            {
+                Action<ConventionsSetter> setconventions = overload =>
+                {
+                    overload.SetProjectBuilder(new FakeProjectBuilder());
+                    overload.SetProjectBinaryLoader(new FakeProjectBinaryLoader());
+                };
+                var projectHelper = new ProjectHelper(SampleProjectHelper.WorkFolder(), setconventions);
+                var resultContext = await projectHelper.BuildProjectAssembly();
+
+                Check.That(resultContext).HasNoErrors();
+                Check.That(resultContext.AssemblyLength).IsEqualTo(1000);
+            }
+            
+            [Fact]
+            public async Task ensure_default_projectBinaryLoader_loads_assembly_and_dependencies()
+            {
+                var projectHelper = new ProjectHelper(SampleProjectHelper.WorkFolder());
+                var resultContext = await projectHelper.BuildProjectAssembly();
+
+                Check.That(resultContext).HasNoErrors();
+            }
+        }
     }
+
     
+    public class FakeProjectBinaryLoader : IProjectBinaryLoader
+    {
+        public BuildContext LoadAssemblyAndContext(BuildContext context)
+        {
+            context.AssemblyLength = 1000;
+            context.ResultingAssembly = Assembly.GetAssembly(typeof(FakeProjectBinaryLoader));
+
+            return context;
+        }
+    }
+
 
     public class FakeProjectFileChooser : IProjectFileChooser
     {
@@ -160,8 +198,9 @@ namespace Bolt.Tests
     }
 
     
+    
 
-/* EXPERIMENT WITH FILEINFO :
+/* EXPERIMENT WITH FILEINFO : (try file provider experiments once ready)
  ---------------------------- 
     public class InMemoryFileProvider : IFileProvider
     {
