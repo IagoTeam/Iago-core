@@ -5,7 +5,9 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.Loader;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyModel;
 
 [assembly: InternalsVisibleTo("Bolt.Tests")]  
 
@@ -68,6 +70,7 @@ namespace Bolt
     {
         IBuildPipeline<U> Run<U>();
     }
+    
     public struct BuildContext
     {
         public Assembly ResultingAssembly { get; set; }
@@ -100,7 +103,7 @@ namespace Bolt
         {
             services.ProjectFileChooser = projectFileChooser ?? new DirectoryProjectFileChooser();
             services.ProjectBuilder = projectBuilder ?? new MsBuildProjectBuilder();
-            services.ProjectBinaryLoader = projectBinaryLoader;
+            services.ProjectBinaryLoader = projectBinaryLoader ?? new AssemblyBinaryLoader();
         }
         
         public void SetProjectFileChooser(IProjectFileChooser projectFileChooser)
@@ -169,19 +172,24 @@ namespace Bolt
                 RedirectStandardError = true,
                 RedirectStandardOutput = true
             };
+            
             var process =  new Process();
             process.EnableRaisingEvents = true;
             process.StartInfo = psi;
             List<string> libs = new List<string>();
             process.OutputDataReceived += (sender, args) =>
             {
+                if (args.Data?.Contains("Error") == true)
+                {
+                    context.Error = new Exception($"Build error: {Environment.NewLine}{args.Data}");
+                    return;
+                }
                 string line = args.Data;
                 if(line?.Contains("->") == true && line?.Contains(context.ProjectName) == true)
                 {
                     var libNameInBuildLog = line.Substring(line.IndexOf(" -> ") + 4);
                     libs.Add(libNameInBuildLog);
                 }
-                
             };
             process.Start();
             process.BeginOutputReadLine();
@@ -204,6 +212,35 @@ namespace Bolt
                 context.Error = new Exception("output dll not found");
             }
             
+            return context;
+        }
+    }
+    
+    public class AssemblyBinaryLoader : IProjectBinaryLoader
+    {
+        public BuildContext LoadAssemblyAndContext(BuildContext context)
+        {
+            var asm = Assembly.LoadFile(context.ResultingAssemblyFile);
+            var dp = DependencyContext.Load(asm);
+            var packageDirs =((string)AppDomain.CurrentDomain.GetData("PROBING_DIRECTORIES")).Split(":".ToCharArray(),StringSplitOptions.RemoveEmptyEntries);
+            
+            AssemblyLoadContext.Default.Resolving += (ctx, name) =>
+            {
+                var depInfo = dp.RuntimeLibraries.FirstOrDefault(x => x.Name == name.Name);
+
+                if (depInfo.Type=="package")
+                {
+                    var loockupFolder = packageDirs.First();
+                    var packageFolder=depInfo.Path;
+                    var fileName=depInfo.RuntimeAssemblyGroups[0].AssetPaths[0];
+                    var fullPath = Path.Combine(loockupFolder, packageFolder, fileName);
+                    return Assembly.LoadFile(fullPath);
+                }
+
+                return null;
+            };
+
+            context.ResultingAssembly = asm;
             return context;
         }
     }

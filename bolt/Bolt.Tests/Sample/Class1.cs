@@ -4,7 +4,7 @@ namespace Sample
 {
     public class Greetings
     {
-        public string Hello { get; } = "Hello World";
+        public string SayHello () => "Hello World";
 
         public string ToHtml(string md)
         {
